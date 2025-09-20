@@ -12,7 +12,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === "POST") {
     const { username, password, role = "client", email } = req.body || {};
     if (!username || !password) return res.status(400).json({ message: "username and password required" });
-    const existing = await db.select().from(users).where(eq(users.username, username)).limit(1);
+    // Avoid parameterized LIMIT for pg-mem compatibility in local dev
+    const existing = await db.select().from(users).where(eq(users.username, username));
     if (existing[0]) return res.status(409).json({ message: "username already exists" });
     const hashedPassword = await new Argon2id().hash(password);
     const id = crypto.randomUUID();

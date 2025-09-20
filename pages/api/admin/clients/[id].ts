@@ -10,7 +10,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { id } = req.query as { id: string };
 
   if (req.method === "GET") {
-    const client = (await db.select().from(clients).where(eq(clients.id, id)).limit(1))[0];
+    // Avoid parameterized LIMIT for pg-mem compatibility in local dev
+    const client = (await db.select().from(clients).where(eq(clients.id, id)))[0];
     if (!client) return res.status(404).json({ message: "Not found" });
     const r = await db.select().from(reports).where(eq(reports.clientId, id)).orderBy(desc(reports.date));
     return res.status(200).json({ client, reports: r });

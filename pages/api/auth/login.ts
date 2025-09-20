@@ -40,7 +40,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ message: "Username and password required" });
   }
 
-  const rows = await db.select().from(usersTable).where(eq(usersTable.username, username)).limit(1);
+  // Avoid parameterized LIMIT for pg-mem compatibility in local dev
+  const rows = await db.select().from(usersTable).where(eq(usersTable.username, username));
   const user = rows[0];
   if (!user) return res.status(401).json({ message: "Invalid credentials" });
   const valid = await new Argon2id().verify(user.hashedPassword, password);

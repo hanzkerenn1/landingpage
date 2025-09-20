@@ -5,14 +5,30 @@ import * as schema from "./schema";
 import { newDb } from "pg-mem";
 import { Pool } from "pg";
 
-const connectionString = process.env.DATABASE_URL;
+function resolveConnectionString(): string | undefined {
+  return (
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_URL ||
+    process.env.NEON_DATABASE_URL ||
+    process.env.POSTGRES_PRISMA_URL ||
+    process.env.POSTGRES_URL_NON_POOLING ||
+    process.env.POSTGRES_CONNECTION_STRING
+  );
+}
+const connectionString = resolveConnectionString();
 
 export const db = (() => {
   if (connectionString) {
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[db] Using Neon HTTP with DATABASE_URL in", process.env.NODE_ENV);
+    }
     const sql = neon(connectionString);
     return drizzleNeon(sql, { schema });
   }
   // In-memory Postgres (pg-mem) fallback for local/dev without external DB
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[db] Using pg-mem in-memory database (no DATABASE_URL)");
+  }
   const mem = newDb();
   const { Pool: MemPool } = mem.adapters.createPg();
   const pool: Pool = new MemPool();
@@ -53,6 +69,10 @@ export const db = (() => {
     );
   `;
   mem.public.none(schemaSql);
+
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[db] pg-mem schema initialized");
+  }
 
   return drizzlePg(pool, { schema });
 })();

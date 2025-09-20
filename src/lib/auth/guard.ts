@@ -13,7 +13,15 @@ export function withAdminGSSP<P extends AnyProps = AnyProps>(
     const cookies = parseCookie(req.headers.cookie || "");
     const sessionId = cookies["session"] ?? null;
 
-    if (!process.env.DATABASE_URL) {
+    // In production on Vercel, require a DB url. In local dev, allow pg-mem fallback.
+    const hasDbUrl =
+      process.env.DATABASE_URL ||
+      process.env.POSTGRES_URL ||
+      process.env.NEON_DATABASE_URL ||
+      process.env.POSTGRES_PRISMA_URL ||
+      process.env.POSTGRES_URL_NON_POOLING ||
+      process.env.POSTGRES_CONNECTION_STRING;
+    if (process.env.NODE_ENV === "production" && process.env.VERCEL && !hasDbUrl) {
       return redirectLogin(resolvedUrl);
     }
 

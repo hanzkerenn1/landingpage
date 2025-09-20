@@ -196,9 +196,13 @@ function ReportForm({ clientId }: { clientId: string }) {
 }
 
 export const getServerSideProps: GetServerSideProps<Props> = withAdminGSSP(async (ctx) => {
-  if (!process.env.DATABASE_URL) return { notFound: true } as GetServerSidePropsResult<Props>;
+  // Allow local dev with pg-mem; require DB in production on Vercel
+  if (process.env.NODE_ENV === "production" && process.env.VERCEL && !process.env.DATABASE_URL) {
+    return { notFound: true } as GetServerSidePropsResult<Props>;
+  }
   const id = (ctx.query.id as string) || "";
-  const client = (await db.select().from(schema.clients).where(eq(schema.clients.id, id)).limit(1))[0];
+  // Avoid parameterized LIMIT for pg-mem compatibility in local dev
+  const client = (await db.select().from(schema.clients).where(eq(schema.clients.id, id)))[0];
   if (!client) return { notFound: true };
   const r = await db.select().from(schema.reports).where(eq(schema.reports.clientId, id)).orderBy(desc(schema.reports.date));
   return { props: { client, reports: r } };

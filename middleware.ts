@@ -6,8 +6,16 @@ export async function middleware(req: NextRequest) {
 
   // Allow non-admin routes and the login page without touching Supabase
   if (!isAdminPath || isLogin) return NextResponse.next();
+  // In production on Vercel, require DATABASE_URL. In local dev, allow pg-mem fallback.
+  const hasDbUrl =
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_URL ||
+    process.env.NEON_DATABASE_URL ||
+    process.env.POSTGRES_PRISMA_URL ||
+    process.env.POSTGRES_URL_NON_POOLING ||
+    process.env.POSTGRES_CONNECTION_STRING;
 
-  if (!process.env.DATABASE_URL) {
+  if (process.env.NODE_ENV === "production" && process.env.VERCEL && !hasDbUrl) {
     const url = new URL("/admin/login", req.url);
     url.searchParams.set("redirect", req.nextUrl.pathname);
     return NextResponse.redirect(url);
