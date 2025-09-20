@@ -3,7 +3,7 @@ import { parse as parseCookie } from "cookie";
 import { lucia } from "@/lib/auth/lucia";
 import { serializeCookie } from "@/lib/auth/session";
 
-type AnyProps = { [key: string]: any };
+type AnyProps = Record<string, unknown>;
 
 export function withAdminGSSP<P extends AnyProps = AnyProps>(
   handler?: (ctx: GetServerSidePropsContext) => Promise<GetServerSidePropsResult<P>>
@@ -35,7 +35,7 @@ export function withAdminGSSP<P extends AnyProps = AnyProps>(
   };
 }
 
-function redirectLogin(redirectTo: string): GetServerSidePropsResult<any> {
+function redirectLogin(redirectTo: string): GetServerSidePropsResult<Record<string, never>> {
   return {
     redirect: {
       destination: `/admin/login?redirect=${encodeURIComponent(redirectTo || "/admin/dashboard")}`,
@@ -43,4 +43,3 @@ function redirectLogin(redirectTo: string): GetServerSidePropsResult<any> {
     },
   };
 }
-

@@ -4,8 +4,6 @@ import { neon } from "@neondatabase/serverless";
 import * as schema from "./schema";
 import { newDb } from "pg-mem";
 import { Pool } from "pg";
-import fs from "fs";
-import path from "path";
 
 const connectionString = process.env.DATABASE_URL;
 
