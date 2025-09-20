@@ -5,18 +5,9 @@ import { Argon2id } from "oslo/password";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).end();
-  // In production on Vercel, require a real database connection string.
-  // In local development, allow pg-mem fallback (no DATABASE_URL).
-  const hasDbUrl =
-    process.env.DATABASE_URL ||
-    process.env.POSTGRES_URL ||
-    process.env.NEON_DATABASE_URL ||
-    process.env.POSTGRES_PRISMA_URL ||
-    process.env.POSTGRES_URL_NON_POOLING ||
-    process.env.POSTGRES_CONNECTION_STRING;
-  if (process.env.NODE_ENV === "production" && process.env.VERCEL && !hasDbUrl) {
-    return res.status(500).json({ message: "DATABASE_URL not set" });
-  }
+  // Note: We no longer hard-fail if DATABASE_URL is missing on Vercel.
+  // The db layer falls back to an in-memory pg-mem instance when no connection string
+  // is present. This is not persistent and only suitable for temporary/testing use.
 
   try {
     const { username, password, email } = req.body || {};
