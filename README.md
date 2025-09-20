@@ -39,3 +39,25 @@ Create `.env.local` (see `.env.example`):
 
 Notes:
 - Without `DATABASE_URL`, admin uses an in-memory DB (for dev only).
+
+## Client Dashboard
+- Link user (role `client`) to a business client via `clientId` when creating the user in Admin → Settings.
+- Client dashboard URL: `/client/dashboard` (requires login as client).
+- Totals shown: Total Topup, Total Spend, Sisa Saldo; table shows report details.
+
+### Schema change (link users → clients)
+If you provisioned DB earlier, apply this migration in Neon:
+```sql
+-- Ensure clients exists
+create table if not exists clients (
+  id uuid primary key default gen_random_uuid(),
+  name varchar(255) not null,
+  email varchar(255),
+  cid varchar(64),
+  notes text,
+  created_at timestamptz not null default now()
+);
+
+-- Add users.client_id if missing
+alter table users add column if not exists client_id uuid references clients(id);
+```

@@ -1,15 +1,29 @@
 import AdminLayout from "@/components/admin/AdminLayout";
 import { useForm } from "react-hook-form";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { GetServerSideProps } from "next";
 import { withAdminGSSP } from "@/lib/auth/guard";
 
-type FormData = { username: string; password: string; role: "admin" | "client"; email?: string };
+type FormData = { username: string; password: string; role: "admin" | "client"; email?: string; clientId?: string };
+
+type Client = { id: string; name: string };
 
 export default function Settings() {
   const { register, handleSubmit, reset } = useForm<FormData>({ defaultValues: { role: "client" } });
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [clients, setClients] = useState<Client[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/clients");
+        if (!res.ok) return;
+        const data = await res.json();
+        setClients((data.clients || []).map((c: any) => ({ id: c.id, name: c.name })));
+      } catch {}
+    })();
+  }, []);
   const onSubmit = handleSubmit(async (values) => {
     setLoading(true);
     setMsg(null);
@@ -48,6 +62,16 @@ export default function Settings() {
             <select className="input" {...register("role", { required: true })}>
               <option value="client">client</option>
               <option value="admin">admin</option>
+            </select>
+          </Field>
+          <Field label="Attach to Client (for role=client)">
+            <select className="input" {...register("clientId")}>
+              <option value="">-- Select client --</option>
+              {clients.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
             </select>
           </Field>
           <button className="btn-primary" disabled={loading}>

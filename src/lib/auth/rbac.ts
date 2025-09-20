@@ -9,3 +9,15 @@ export async function requireAdminApi(req: NextApiRequest, _res: NextApiResponse
   if (user.role !== "admin") return { ok: false as const, status: 403, message: "Forbidden" };
   return { ok: true as const, user, session };
 }
+
+export async function requireClientApi(req: NextApiRequest, _res: NextApiResponse) {
+  const sessionId = req.cookies["session"] ?? null;
+  if (!sessionId) return { ok: false as const, status: 401, message: "Unauthorized" };
+  const { session, user } = await lucia.validateSession(sessionId);
+  if (!session) return { ok: false as const, status: 401, message: "Unauthorized" };
+  if (user.role !== "client") return { ok: false as const, status: 403, message: "Forbidden" };
+  // @ts-expect-error user attributes include clientId via lucia getUserAttributes
+  const clientId: string | null | undefined = (user as any).clientId ?? null;
+  if (!clientId) return { ok: false as const, status: 403, message: "No client access" };
+  return { ok: true as const, user, session, clientId };
+}

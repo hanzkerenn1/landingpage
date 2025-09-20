@@ -2,10 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(req: NextRequest) {
   const isAdminPath = req.nextUrl.pathname.startsWith("/admin");
+  const isClientPath = req.nextUrl.pathname.startsWith("/client");
   const isLogin = req.nextUrl.pathname === "/admin/login";
 
-  // Allow non-admin routes and the login page without touching Supabase
-  if (!isAdminPath || isLogin) return NextResponse.next();
+  // Allow non-admin/client routes and the login page without checks
+  if ((!isAdminPath && !isClientPath) || isLogin) return NextResponse.next();
   // In production on Vercel, require DATABASE_URL. In local dev, allow pg-mem fallback.
   const hasDbUrl =
     process.env.DATABASE_URL ||
@@ -33,7 +34,7 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: ["/admin/:path*", "/client/:path*"],
 };
 
 // No cookie serialization in middleware to avoid Node-only APIs.

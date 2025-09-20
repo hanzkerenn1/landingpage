@@ -10,18 +10,33 @@ import { serializeCookie } from "@/lib/auth/session";
 type RateEntry = { count: number; resetAt: number };
 const WINDOW_MS = 10 * 60 * 1000; // 10 minutes
 const MAX_ATTEMPTS = 5;
+// Track failures per ip+username
 const bucket = new Map<string, RateEntry>();
 
-function rateLimited(ip: string) {
+const keyOf = (ip: string, username: string) => `${ip}|${username}`;
+function isRateLimited(ip: string, username: string) {
+  const key = keyOf(ip, username);
   const now = Date.now();
-  const entry = bucket.get(ip);
-  if (!entry || now > entry.resetAt) {
-    bucket.set(ip, { count: 1, resetAt: now + WINDOW_MS });
+  const entry = bucket.get(key);
+  if (!entry) return false;
+  if (now > entry.resetAt) {
+    bucket.delete(key);
     return false;
   }
-  if (entry.count >= MAX_ATTEMPTS) return true;
-  entry.count += 1;
-  return false;
+  return entry.count >= MAX_ATTEMPTS;
+}
+function markFailure(ip: string, username: string) {
+  const key = keyOf(ip, username);
+  const now = Date.now();
+  const entry = bucket.get(key);
+  if (!entry || now > entry.resetAt) {
+    bucket.set(key, { count: 1, resetAt: now + WINDOW_MS });
+  } else {
+    entry.count += 1;
+  }
+}
+function clearFailures(ip: string, username: string) {
+  bucket.delete(keyOf(ip, username));
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -32,11 +47,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     req.socket.remoteAddress ||
     "unknown";
 
-  if (rateLimited(ip)) {
+  const { username, password } = req.body || {};
+  if (isRateLimited(ip, String(username ?? ""))) {
     return res.status(429).json({ message: "Too many attempts. Try again later." });
   }
-
-  const { username, password } = req.body || {};
   if (!username || !password) {
     return res.status(400).json({ message: "Username and password required" });
   }
@@ -44,7 +58,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Avoid parameterized LIMIT for pg-mem compatibility in local dev
   const rows = await db.select().from(usersTable).where(eq(usersTable.username, username));
   const user = rows[0];
-  if (!user) return res.status(401).json({ message: "Invalid credentials" });
+  if (!user) {
+    markFailure(ip, username);
+    return res.status(401).json({ message: "Invalid credentials" });
+  }
   // Support both Argon2 (existing users) and bcrypt (new admin via App Router route)
   let valid = false;
   try {
@@ -56,7 +73,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   } catch {
     valid = false;
   }
-  if (!valid) return res.status(401).json({ message: "Invalid credentials" });
+  if (!valid) {
+    markFailure(ip, username);
+    return res.status(401).json({ message: "Invalid credentials" });
+  }
+
+  clearFailures(ip, username);
 
   const session = await lucia.createSession(user.id, {});
   const cookie = lucia.createSessionCookie(session.id);

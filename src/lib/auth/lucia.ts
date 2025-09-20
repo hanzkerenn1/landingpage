@@ -14,6 +14,7 @@ export const lucia = new Lucia(
       username: user.username,
       email: user.email,
       role: user.role,
+      clientId: user.clientId ?? null,
     }),
   }
 );
@@ -21,6 +22,6 @@ export const lucia = new Lucia(
 declare module "lucia" {
   interface Register {
     Lucia: typeof lucia;
-    DatabaseUserAttributes: { username: string; email: string | null; role: string };
+    DatabaseUserAttributes: { username: string; email: string | null; role: string; clientId: string | null };
   }
 }
