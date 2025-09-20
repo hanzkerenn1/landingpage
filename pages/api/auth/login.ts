@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { users as usersTable } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { Argon2id } from "oslo/password";
+import bcrypt from "bcryptjs";
 import { lucia } from "@/lib/auth/lucia";
 import { serializeCookie } from "@/lib/auth/session";
 
@@ -44,7 +45,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const rows = await db.select().from(usersTable).where(eq(usersTable.username, username));
   const user = rows[0];
   if (!user) return res.status(401).json({ message: "Invalid credentials" });
-  const valid = await new Argon2id().verify(user.hashedPassword, password);
+  // Support both Argon2 (existing users) and bcrypt (new admin via App Router route)
+  let valid = false;
+  try {
+    if (user.hashedPassword.startsWith("$2")) {
+      valid = await bcrypt.compare(password, user.hashedPassword);
+    } else {
+      valid = await new Argon2id().verify(user.hashedPassword, password);
+    }
+  } catch {
+    valid = false;
+  }
   if (!valid) return res.status(401).json({ message: "Invalid credentials" });
 
   const session = await lucia.createSession(user.id, {});
